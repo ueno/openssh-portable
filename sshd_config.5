@@ -1368,6 +1368,11 @@ or
 .Cm no .
 The default is
 .Cm no .
+.It Cm StreamLocalBindRootDirectory
+Specifies the root directory where a Unix-domain socket file for
+remote port forwarding is created, if the requested path is relative.
+.Pp
+The directory must be readable and writable only by the owner.
 .It Cm StrictModes
 Specifies whether
 .Xr sshd 8
@@ -1613,7 +1618,8 @@ The fingerprint of the key or certificate.
 .It %h
 The home directory of the user.
 .It %i
-The key ID in the certificate.
+The key ID in the certificate if used in AuthorizedPrincipalsCommand,
+or the user ID otherwise.
 .It %K
 The base64-encoded CA key.
 .It %k
@@ -1642,6 +1648,9 @@ accepts the tokens %%, %h, and %u.
 .Pp
 .Cm ChrootDirectory
 accepts the tokens %%, %h, and %u.
+.Pp
+.Cm StreamLocalBindRootDirectory
+accepts the tokens %%, %i, and %u.
 .Sh FILES
 .Bl -tag -width Ds
 .It Pa /etc/ssh/sshd_config

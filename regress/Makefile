@@ -52,6 +52,7 @@ LTESTS= 	connect \
 		reconfigure \
 		dynamic-forward \
 		forwarding \
+		streamlocal \
 		multiplex \
 		reexec \
 		brokenkeys \

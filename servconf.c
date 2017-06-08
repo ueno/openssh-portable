@@ -136,6 +136,7 @@ initialize_server_options(ServerOptions *options)
 	options->fwd_opts.gateway_ports = -1;
 	options->fwd_opts.streamlocal_bind_mask = (mode_t)-1;
 	options->fwd_opts.streamlocal_bind_unlink = -1;
+	options->fwd_opts.streamlocal_bind_root_directory = NULL;
 	options->num_subsystems = 0;
 	options->max_startups_begin = -1;
 	options->max_startups_rate = -1;
@@ -355,6 +356,7 @@ fill_default_server_options(ServerOptions *options)
 	CLEAR_ON_NONE(options->authorized_principals_file);
 	CLEAR_ON_NONE(options->adm_forced_command);
 	CLEAR_ON_NONE(options->chroot_directory);
+	CLEAR_ON_NONE(options->fwd_opts.streamlocal_bind_root_directory);
 	for (i = 0; i < options->num_host_key_files; i++)
 		CLEAR_ON_NONE(options->host_key_files[i]);
 	for (i = 0; i < options->num_host_cert_files; i++)
@@ -417,6 +419,7 @@ typedef enum {
 	sAuthorizedKeysCommand, sAuthorizedKeysCommandUser,
 	sAuthenticationMethods, sHostKeyAgent, sPermitUserRC,
 	sStreamLocalBindMask, sStreamLocalBindUnlink,
+	sStreamLocalBindRootDirectory,
 	sAllowStreamLocalForwarding, sFingerprintHash, sDisableForwarding,
 	sDeprecated, sIgnore, sUnsupported
 } ServerOpCodes;
@@ -558,6 +561,7 @@ static struct {
 	{ "authenticationmethods", sAuthenticationMethods, SSHCFG_ALL },
 	{ "streamlocalbindmask", sStreamLocalBindMask, SSHCFG_ALL },
 	{ "streamlocalbindunlink", sStreamLocalBindUnlink, SSHCFG_ALL },
+	{ "streamlocalbindrootdirectory", sStreamLocalBindRootDirectory, SSHCFG_ALL },
 	{ "allowstreamlocalforwarding", sAllowStreamLocalForwarding, SSHCFG_ALL },
 	{ "fingerprinthash", sFingerprintHash, SSHCFG_GLOBAL },
 	{ "disableforwarding", sDisableForwarding, SSHCFG_ALL },
@@ -1823,6 +1827,17 @@ process_server_config_line(ServerOptions *options, char *line,
 		intptr = &options->fwd_opts.streamlocal_bind_unlink;
 		goto parse_flag;
 
+	case sStreamLocalBindRootDirectory:
+		charptr = &options->fwd_opts.streamlocal_bind_root_directory;
+
+		arg = strdelim(&cp);
+		if (!arg || *arg == '\0')
+			fatal("%s line %d: missing file name.",
+			    filename, linenum);
+		if (*activep && *charptr == NULL)
+			*charptr = xstrdup(arg);
+		break;
+
 	case sFingerprintHash:
 		arg = strdelim(&cp);
 		if (!arg || *arg == '\0')
@@ -2038,6 +2053,11 @@ copy_set_server_options(ServerOptions *dst, ServerOptions *src, int preauth)
 	if (option_clear_or_none(dst->chroot_directory)) {
 		free(dst->chroot_directory);
 		dst->chroot_directory = NULL;
+	}
+	M_CP_STROPT(fwd_opts.streamlocal_bind_root_directory);
+	if (option_clear_or_none(dst->fwd_opts.streamlocal_bind_root_directory)) {
+		free(dst->fwd_opts.streamlocal_bind_root_directory);
+		dst->fwd_opts.streamlocal_bind_root_directory = NULL;
 	}
 }
 
@@ -2300,6 +2320,7 @@ dump_config(ServerOptions *o)
 	    o->hostkeyalgorithms : KEX_DEFAULT_PK_ALG);
 	dump_cfg_string(sPubkeyAcceptedKeyTypes, o->pubkey_key_types ?
 	    o->pubkey_key_types : KEX_DEFAULT_PK_ALG);
+	dump_cfg_string(sStreamLocalBindRootDirectory, o->fwd_opts.streamlocal_bind_root_directory);
 
 	/* string arguments requiring a lookup */
 	dump_cfg_string(sLogLevel, log_level_name(o->log_level));

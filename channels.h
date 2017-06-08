@@ -274,7 +274,7 @@ void	 channel_clear_adm_permitted_opens(void);
 void 	 channel_print_adm_permitted_opens(void);
 Channel	*channel_connect_to_port(const char *, u_short, char *, char *, int *,
 	     const char **);
-Channel *channel_connect_to_path(const char *, char *, char *);
+Channel *channel_connect_to_path(const char *, char *, char *, struct ForwardOptions *);
 Channel	*channel_connect_stdio_fwd(const char*, u_short, int, int);
 Channel	*channel_connect_by_listen_address(const char *, u_short,
 	     char *, char *);

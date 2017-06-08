@@ -2234,6 +2234,22 @@ parse_forward(struct Forward *fwd, const char *fwdspec, int dynamicfwd, int remo
 	if (fwd->connect_host != NULL &&
 	    strlen(fwd->connect_host) >= NI_MAXHOST)
 		goto fail_free;
+	/* The path starting with "./" means that it will be resolved
+	 * on the server side */
+	if (!dynamicfwd) {
+		if (!remotefwd && fwd->connect_path != NULL &&
+		    strncmp(fwd->connect_path, "./", 2) == 0) {
+			char *path = xstrdup(fwd->connect_path + 2);
+			free(fwd->connect_path);
+			fwd->connect_path = path;
+		}
+		if (remotefwd && fwd->listen_path != NULL &&
+		    strncmp(fwd->listen_path, "./", 2) == 0) {
+			char *path = xstrdup(fwd->listen_path + 2);
+			free(fwd->listen_path);
+			fwd->listen_path = path;
+		}
+	}
 	/* XXX - if connecting to a remote socket, max sun len may not match this host */
 	if (fwd->connect_path != NULL &&
 	    strlen(fwd->connect_path) >= PATH_MAX_SUN)

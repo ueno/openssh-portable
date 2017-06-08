@@ -352,6 +352,20 @@ or the Unix socket
 .Ar remote_socket ,
 from the remote machine.
 .Pp
+.Ar remote_socket
+can be either an absolute path or a relative path.  If it is a
+relative path, it is resolved on the remote host, based on the
+.Cm StreamLocalBindRootDirectory
+setting.
+In order to avoid confusion between service name and socket path,
+.Sq ./
+can be prefixed to explicitly indicate that the path be relative.
+Note that even if relative paths are allowed, path name traversal is
+restricted to directories excluding
+.Sq ..
+and
+.Sq \&. .
+.Pp
 Port forwardings can also be specified in the configuration file.
 Only the superuser can forward privileged ports.
 IPv6 addresses can be specified by enclosing the address in square brackets.
@@ -607,6 +621,20 @@ port
 or
 .Ar local_socket ,
 from the local machine.
+.Pp
+.Ar remote_socket
+can be either an absolute path or a relative path.  If it is a
+relative path, it is resolved on the remote host, based on the
+.Cm StreamLocalBindRootDirectory
+setting.
+In order to avoid confusion between service name and socket path,
+.Sq ./
+can be prefixed to explicitly indicate that the path be relative.
+Note that even if relative paths are allowed, path name traversal is
+restricted to directories excluding
+.Sq ..
+and
+.Sq \&. .
 .Pp
 Port forwardings can also be specified in the configuration file.
 Privileged ports can be forwarded only when

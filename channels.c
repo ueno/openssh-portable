@@ -2996,6 +2996,59 @@ channel_setup_fwd_listener_tcpip(int type, struct Forward *fwd,
 	return success;
 }
 
+/* Expands a relative socket path to the absolute path, from the given
+ * root directory. */
+static char *
+expand_relative_socket_path(const char *pathname, const char *root_directory)
+{
+	char *ret, *cp;
+	struct stat st;
+
+	if (*pathname == '/')
+		return xstrdup(pathname);
+
+	if (xasprintf(&ret, "%s/%s", root_directory, pathname) >= PATH_MAX) {
+		error("Socket path too long");
+		free(ret);
+		return NULL;
+	}
+
+	cp = ret + strlen(root_directory) + 1;
+	while (*cp != '\0') {
+		char *cp2 = strchr(cp, '/');
+		if (cp2 != NULL)
+			*cp2 = '\0';
+		if (cp2 == cp || strcmp(cp, ".") == 0 || strcmp(cp, "..") == 0) {
+			error("Invalid socket path");
+			free(ret);
+			return NULL;
+		}
+		if (stat(ret, &st) == -1) {
+			if (cp2 != NULL && errno != ENOENT) {
+				error("Parent directory is not accessible");
+				free(ret);
+				return NULL;
+			}
+		} else {
+			if (cp2 != NULL && !S_ISDIR(st.st_mode)) {
+				error("Parent is not a directory");
+				free(ret);
+				return NULL;
+			}
+			if (cp2 == NULL && S_ISLNK(st.st_mode)) {
+				error("Symbolic link is not allowed");
+				free(ret);
+				return NULL;
+			}
+		}
+		if (cp2 == NULL)
+			break;
+		*cp2 = '/';
+		cp = cp2 + 1;
+	}
+	return ret;
+}
+
 static int
 channel_setup_fwd_listener_streamlocal(int type, struct Forward *fwd,
     struct ForwardOptions *fwd_opts)
@@ -3005,6 +3058,7 @@ channel_setup_fwd_listener_streamlocal(int type, struct Forward *fwd,
 	Channel *c;
 	int port, sock;
 	mode_t omask;
+	char *listen_path;
 
 	switch (type) {
 	case SSH_CHANNEL_UNIX_LISTENER:
@@ -3042,22 +3096,39 @@ channel_setup_fwd_listener_streamlocal(int type, struct Forward *fwd,
 		error("No forward path name.");
 		return 0;
 	}
-	if (strlen(fwd->listen_path) > sizeof(sunaddr.sun_path)) {
-		error("Local listening path too long: %s", fwd->listen_path);
+
+	if (fwd->listen_path[0] != '/') {
+		if (fwd_opts->streamlocal_bind_root_directory == NULL) {
+			error("Relative path is not enabled.");
+			return 0;
+		}
+		listen_path = expand_relative_socket_path(fwd->listen_path,
+		    fwd_opts->streamlocal_bind_root_directory);
+		if (listen_path == NULL)
+			return 0;
+	} else
+		listen_path = xstrdup(fwd->listen_path);
+
+	if (strlen(listen_path) > sizeof(sunaddr.sun_path)) {
+		error("Local listening path too long: %s", listen_path);
+		free(listen_path);
 		return 0;
 	}
 
-	debug3("%s: type %d path %s", __func__, type, fwd->listen_path);
+	debug3("%s: type %d path %s", __func__, type, listen_path);
 
 	/* Start a Unix domain listener. */
 	omask = umask(fwd_opts->streamlocal_bind_mask);
-	sock = unix_listener(fwd->listen_path, SSH_LISTEN_BACKLOG,
+	sock = unix_listener(listen_path, SSH_LISTEN_BACKLOG,
 	    fwd_opts->streamlocal_bind_unlink);
 	umask(omask);
-	if (sock < 0)
+	if (sock < 0) {
+		free(listen_path);
 		return 0;
+	}
 
-	debug("Local forwarding listening on path %s.", fwd->listen_path);
+	debug("Local forwarding listening on path %s.", listen_path);
+	free(listen_path);
 
 	/* Allocate a channel number for the socket. */
 	c = channel_new("unix listener", type, sock, sock, -1,
@@ -3825,9 +3896,12 @@ channel_connect_to_port(const char *host, u_short port, char *ctype,
 
 /* Check if connecting to that path is permitted and connect. */
 Channel *
-channel_connect_to_path(const char *path, char *ctype, char *rname)
+channel_connect_to_path(const char *path, char *ctype, char *rname,
+			struct ForwardOptions *fwd_opts)
 {
 	int i, permit, permit_adm = 1;
+	char *connect_path;
+	Channel *c;
 
 	permit = all_opens_permitted;
 	if (!permit) {
@@ -3852,7 +3926,21 @@ channel_connect_to_path(const char *path, char *ctype, char *rname)
 		    "but the request was denied.", path);
 		return NULL;
 	}
-	return connect_to(path, PORT_STREAMLOCAL, ctype, rname);
+
+	if (path[0] != '/') {
+		if (fwd_opts->streamlocal_bind_root_directory == NULL) {
+			logit("Relative path is not enabled");
+			return NULL;
+		}
+		connect_path = expand_relative_socket_path(path,
+                    fwd_opts->streamlocal_bind_root_directory);
+		if (connect_path == NULL)
+			return NULL;
+	} else
+		connect_path = xstrdup(path);
+	c = connect_to(connect_path, PORT_STREAMLOCAL, ctype, rname);
+	free(connect_path);
+	return c;
 }
 
 void

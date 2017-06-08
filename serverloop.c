@@ -488,7 +488,8 @@ server_request_direct_streamlocal(void)
 	    !no_port_forwarding_flag && !options.disable_forwarding &&
 	    (pw->pw_uid == 0 || use_privsep)) {
 		c = channel_connect_to_path(target,
-		    "direct-streamlocal@openssh.com", "direct-streamlocal");
+		    "direct-streamlocal@openssh.com", "direct-streamlocal",
+		    &options.fwd_opts);
 	} else {
 		logit("refused streamlocal port forward: "
 		    "originator %s port %d, target %s",

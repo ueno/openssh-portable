@@ -2077,6 +2077,31 @@ main(int ac, char **av)
 		/* the monitor process [priv] will not return */
 	}
 
+	/* Process per-user options */
+	if (options.fwd_opts.streamlocal_bind_root_directory != NULL) {
+		char uidstr[32], *cp;
+		struct stat st;
+
+		snprintf(uidstr, sizeof(uidstr), "%d", authctxt->pw->pw_uid);
+
+		cp = tilde_expand_filename(
+			options.fwd_opts.streamlocal_bind_root_directory,
+			authctxt->pw->pw_uid);
+		free(options.fwd_opts.streamlocal_bind_root_directory);
+		options.fwd_opts.streamlocal_bind_root_directory =
+		    percent_expand(cp,
+			"u", authctxt->pw->pw_name,
+			"i", uidstr,
+			(char *)NULL);
+		free(cp);
+		if (stat(options.fwd_opts.streamlocal_bind_root_directory, &st) == -1)
+			fatal("%s is not accessible",
+			    options.fwd_opts.streamlocal_bind_root_directory);
+		if (st.st_uid != authctxt->pw->pw_uid || (st.st_mode & 077) != 0)
+			fatal("Bad ownership or modes for directory %s",
+			    options.fwd_opts.streamlocal_bind_root_directory);
+	}
+
 	packet_set_timeout(options.client_alive_interval,
 	    options.client_alive_count_max);
 
